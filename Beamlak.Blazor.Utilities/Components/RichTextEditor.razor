@@ -1,0 +1,187 @@
+﻿@inject RichTextEditorJsInterop EditorJsInterop
+
+<div @ref="@toolbar" style="@toolbarStyle">
+    @if (EditorMode is not EditorMode.Readonly)
+    {
+        if (ToolbarContent is not null)
+        {  
+            @ToolbarContent
+        }
+        else if (ToolbarOption is ToolbarOption.Full)
+        {
+            <span class="ql-formats">
+                <select class="ql-font"></select>
+                <select class="ql-size"></select>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-bold"></button>
+              <button class="ql-italic"></button>
+              <button class="ql-underline"></button>
+              <button class="ql-strike"></button>
+            </span>
+            <span class="ql-formats">
+              <select class="ql-color"></select>
+              <select class="ql-background"></select>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-script" value="sub"></button>
+              <button class="ql-script" value="super"></button>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-header" value="1"></button>
+              <button class="ql-header" value="2"></button>
+              <button class="ql-blockquote"></button>
+              <button class="ql-code-block"></button>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-list" value="ordered"></button>
+              <button class="ql-list" value="bullet"></button>
+              <button class="ql-indent" value="-1"></button>
+              <button class="ql-indent" value="+1"></button>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-direction" value="rtl"></button>
+              <select class="ql-align"></select>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-link"></button>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-clean"></button>
+            </span>
+        }
+        else if (ToolbarOption is ToolbarOption.Minimal)
+        {
+            <span class="ql-formats">
+                <select class="ql-font">
+                    <option selected=""></option>
+                    <option value="serif"></option>
+                    <option value="monospace"></option>
+                </select>
+                <select class="ql-size">
+                    <option value="small"></option>
+                    <option selected=""></option>
+                    <option value="large"></option>
+                    <option value="huge"></option>
+                </select>
+            </span>
+            <span class="ql-formats">
+                <button class="ql-bold"></button>
+                <button class="ql-italic"></button>
+                <button class="ql-underline"></button>
+                <button class="ql-strike"></button>
+            </span>
+            <span class="ql-formats">
+                <select class="ql-color"></select>
+                <select class="ql-background"></select>
+            </span>
+            <span class="ql-formats">
+                <button class="ql-list" value="ordered"></button>
+                <button class="ql-list" value="bullet"></button>
+                <button class="ql-indent" value="-1"></button>
+                <button class="ql-indent" value="+1"></button>
+                <select class="ql-align">
+                    <option selected=""></option>
+                    <option value="center"></option>
+                    <option value="right"></option>
+                    <option value="justify"></option>
+                </select>
+            </span>
+            <span class="ql-formats">
+                <button class="ql-link"></button>
+            </span>
+        }
+    }
+</div>
+
+<div id="editor" @ref="@textEditor" class="@editorCssClass" style="@editorStyle">
+    @EditorContent
+</div>
+
+@code {
+    [Parameter] public RenderFragment EditorContent { get; set; }
+    [Parameter] public RenderFragment ToolbarContent { get; set; }
+    [Parameter] public string Placeholder { get; set; } = string.Empty;
+    [Parameter] public string Theme { get; set; } = "snow";
+    [Parameter] public Color Color { get; set; } = Color.Inherit;
+    [Parameter] public EditorMode EditorMode { get; set; } = EditorMode.Normal;
+    [Parameter] public ToolbarOption ToolbarOption { get; set; } = ToolbarOption.Minimal;
+    [Parameter] public string Class { get; set; } = string.Empty;
+
+    ElementReference textEditor;
+    ElementReference toolbar;
+    string toolbarStyle = "visibility: visible;";
+    string editorCssClass = string.Empty;
+    string editorStyle = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        toolbarStyle = EditorMode is EditorMode.Readonly ? "visibility: hidden;" : "visibility: visible;";
+        var classes = Class.Split(' ');
+        foreach (var item in classes)
+        {
+            if (!editorCssClass.Contains(item))
+            {
+                editorCssClass += $" {item}";
+            }
+        }
+        editorCssClass = editorCssClass.Trim();
+        Class = editorCssClass;
+        if (Color is not Color.Inherit)
+        {
+            toolbarStyle += Color == Color.Light
+                ? " color: black; background-color: rgba(255,255,255,0.85);"
+                : " color: white; background-color: rgba(0,0,0,0.85);";
+            editorStyle += Color == Color.Light
+                ? " color: black; background-color: rgba(255,255,255,0.85);"
+                : " color: white; background-color: rgba(0,0,0,0.85);";
+        }
+        editorStyle = editorStyle.Trim();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            bool isReadonly = EditorMode is EditorMode.Readonly;
+            Theme = EditorMode switch
+            {
+                EditorMode.Normal => "snow",
+                _ => "bubble"
+            };
+            if (EditorMode is EditorMode.Readonly && !editorCssClass.Contains("read-only"))
+            {
+                editorCssClass += " read-only";
+            }
+            editorCssClass = editorCssClass.Trim();
+            editorStyle = editorStyle.Trim();
+
+            await EditorJsInterop.CreateTextEditor(textEditor, toolbar, isReadonly, Placeholder, Theme);  
+        }
+    }
+
+    public Task<string> GetText()
+    {
+        return EditorJsInterop.GetEditorText(textEditor).AsTask();
+    }
+    
+    public Task<string> GetHTML()
+    {
+        return EditorJsInterop.GetEditorHTML(textEditor).AsTask();
+    }
+    
+    public Task<string> GetContent()
+    {
+        return EditorJsInterop.GetEditorContent(textEditor).AsTask();
+    }
+    
+    public Task LoadContent(string content)
+    {
+        return EditorJsInterop.LoadEditorContent(textEditor, content).AsTask();
+    }
+    
+    public Task EnableEditor(bool mode)
+    {
+        return EditorJsInterop.EnableTextEditor(textEditor, mode).AsTask();
+    }
+}
